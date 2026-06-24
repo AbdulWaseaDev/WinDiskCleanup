@@ -38,36 +38,19 @@ Describe "Repository structure" {
 }
 
 Describe "cleanup-config.ps1 — default values" {
-    BeforeAll {
+    It "path arrays are arrays and all skip flags default to false" {
         . $script:ConfigFile
-        # Capture into $script: scope — Pester v5 BeforeAll vars are not visible in It blocks otherwise
-        $script:Cfg_ProjectsPath        = $Config_ProjectsPath
-        $script:Cfg_InactiveNodeModules = $Config_InactiveNodeModules
-        $script:Cfg_InactivePythonVenvs = $Config_InactivePythonVenvs
-        $script:Cfg_SkipFlags           = @(
+        $Config_ProjectsPath        | Should -BeOfType [array]
+        $Config_InactiveNodeModules | Should -BeOfType [array]
+        $Config_InactivePythonVenvs | Should -BeOfType [array]
+        @(
             $Config_SkipChrome, $Config_SkipEdge, $Config_SkipFirefox, $Config_SkipBrave,
             $Config_SkipNpm, $Config_SkipPip,
             $Config_SkipTemp, $Config_SkipWindowsUpdate, $Config_SkipWindowsStore, $Config_SkipRecycleBin,
             $Config_SkipClaude, $Config_SkipVSCode, $Config_SkipTeams,
             $Config_SkipPycache, $Config_SkipNodeModules, $Config_SkipPythonVenvs,
             $Config_SkipDocker, $Config_SkipWSLApt, $Config_SkipWSLCompact, $Config_SkipDockerCompact
-        )
-    }
-
-    It "Config_ProjectsPath is an array" {
-        $script:Cfg_ProjectsPath | Should -BeOfType [array]
-    }
-
-    It "Config_InactiveNodeModules is an array" {
-        $script:Cfg_InactiveNodeModules | Should -BeOfType [array]
-    }
-
-    It "Config_InactivePythonVenvs is an array" {
-        $script:Cfg_InactivePythonVenvs | Should -BeOfType [array]
-    }
-
-    It "All skip flags default to false" {
-        $script:Cfg_SkipFlags | Should -Not -Contain $true
+        ) | Should -Not -Contain $true
     }
 }
 
