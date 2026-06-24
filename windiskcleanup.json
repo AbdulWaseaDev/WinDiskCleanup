@@ -1,0 +1,18 @@
+{
+    "version": "1.5.0",
+    "description": "A PowerShell disk cleanup script for Windows developers — cleans browser caches, package managers, temp files, WSL/Docker virtual disks, and inactive project dependencies in one run.",
+    "homepage": "https://github.com/AbdulWaseaDev/WinDiskCleanup",
+    "license": "MIT",
+    "url": "https://github.com/AbdulWaseaDev/WinDiskCleanup/archive/refs/tags/v1.5.0.zip",
+    "extract_dir": "WinDiskCleanup-1.5.0",
+    "bin": [
+        ["WinDiskCleanup.ps1", "WinDiskCleanup"]
+    ],
+    "checkver": {
+        "github": "https://github.com/AbdulWaseaDev/WinDiskCleanup"
+    },
+    "autoupdate": {
+        "url": "https://github.com/AbdulWaseaDev/WinDiskCleanup/archive/refs/tags/v$version.zip",
+        "extract_dir": "WinDiskCleanup-$version"
+    }
+}

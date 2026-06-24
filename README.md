@@ -7,6 +7,15 @@ A PowerShell disk cleanup script for Windows developers. Frees up space by clean
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)
 ![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg)
+![Tests](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?label=tests)
+
+---
+
+## Demo
+
+![WinDiskCleanup Demo](assets/demo.gif)
+
+> **To record:** run `.\WinDiskCleanup.ps1 -DryRun` in [Windows Terminal](https://aka.ms/terminal), record with [ScreenToGif](https://www.screentogif.com), save as `assets/demo.gif`.
 
 ---
 
@@ -52,12 +61,21 @@ WSL, Docker, npm, pip, Chrome, Edge, VS Code, and Claude are all optional. The s
 
 ## Installation
 
+**Option 1 — Scoop (recommended):**
+
+```powershell
+scoop bucket add windiskcleanup https://github.com/AbdulWaseaDev/WinDiskCleanup
+scoop install windiskcleanup
+```
+
+**Option 2 — Git clone:**
+
 ```powershell
 git clone https://github.com/AbdulWaseaDev/WinDiskCleanup.git
 cd WinDiskCleanup
 ```
 
-Or download the ZIP from GitHub and extract it anywhere.
+**Option 3 — ZIP:** Download from GitHub and extract anywhere.
 
 ---
 
