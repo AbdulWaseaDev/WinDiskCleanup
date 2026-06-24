@@ -1,49 +1,67 @@
+<div align="center">
+
 # WinDiskCleanup
 
-A PowerShell disk cleanup script for Windows developers. Frees up space by cleaning browser caches, package manager caches, temp files, WSL/Docker virtual disks, and inactive project dependencies — all in one run.
+**One-command disk cleanup for Windows developers.**
 
-![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)
-![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)
+Cleans browser caches, package manager caches, temp files, WSL/Docker virtual disks,  
+and inactive project dependencies — all in a single run.
+
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](https://github.com/PowerShell/PowerShell)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)](https://www.microsoft.com/windows)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest)
 [![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml)
+
+[Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Contributing](#contributing)
+
+</div>
 
 ---
 
-## Demo
+## Quick Start
 
-![WinDiskCleanup Demo](assets/demo.gif)
+```powershell
+# 1. Clone and open the folder
+git clone https://github.com/AbdulWaseaDev/WinDiskCleanup.git
+cd WinDiskCleanup
 
-> **To record:** run `.\WinDiskCleanup.ps1 -DryRun` in [Windows Terminal](https://aka.ms/terminal), record with [ScreenToGif](https://www.screentogif.com), save as `assets/demo.gif`.
+# 2. Preview what will be cleaned (safe — deletes nothing)
+.\WinDiskCleanup.ps1 -DryRun
+
+# 3. Run the full cleanup (as Administrator)
+.\WinDiskCleanup.ps1
+```
+
+> **First time only:** `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 ---
 
 ## What It Cleans
 
-| Step | Target | Notes |
-|------|--------|-------|
-| 1 | Chrome cache (all profiles) | Auto-detects all profiles |
-| 2 | Claude Desktop cache | Auto-detects MSIX install |
-| 3 | Microsoft Edge cache | Auto-detects all profiles |
-| 4 | Firefox cache | Auto-detects all profiles |
-| 5 | Brave cache | Auto-detects all profiles |
+| # | Target | Notes |
+|---|--------|-------|
+| 1 | Chrome cache | All profiles, auto-detected |
+| 2 | Claude Desktop cache | MSIX install, auto-detected |
+| 3 | Microsoft Edge cache | All profiles, auto-detected |
+| 4 | Firefox cache | All profiles, auto-detected |
+| 5 | Brave cache | All profiles, auto-detected |
 | 6 | npm cache | Skipped if npm not installed |
 | 7 | pip cache | Skipped if pip not installed |
 | 8 | Temp files | User temp + Windows temp |
 | 9 | Windows Update cache | Safely stops/restarts wuauserv |
 | 10 | Windows Store cache | wsreset |
 | 11 | Recycle Bin | Configurable |
-| 12 | VS Code duplicate extensions | Keeps newest version, removes older |
-| 13 | Microsoft Teams cache | Classic and new MSIX Teams |
-| 14 | Projects __pycache__ | Configurable path |
-| 15 | Inactive node_modules | You define which ones |
+| 12 | VS Code duplicate extensions | Keeps newest version only |
+| 13 | Microsoft Teams cache | Classic and MSIX Teams |
+| 14 | Projects `__pycache__` | Configurable path |
+| 15 | Inactive `node_modules` | You define which ones |
 | 16 | Inactive Python venvs | You define which ones |
-| 17 | Docker prune | Docker Desktop or Docker in WSL — auto-detected |
-| 18 | WSL apt cleanup | apt clean + autoremove |
+| 17 | Docker prune | Docker Desktop or Docker in WSL |
+| 18 | WSL apt cleanup | `apt clean` + `autoremove` |
 | 19 | WSL + Docker vhdx compaction | Reclaims unused virtual disk space |
 
-Everything is **auto-detected**. If a tool is not installed, that step is silently skipped.
-
+Everything is **auto-detected** — if a tool is not installed, that step is silently skipped.  
 No telemetry. No network calls. Runs entirely offline.
 
 ---
@@ -54,7 +72,7 @@ No telemetry. No network calls. Runs entirely offline.
 - PowerShell 5.1 or later (built into Windows)
 - Run as **Administrator**
 
-WSL, Docker, npm, pip, Chrome, Edge, VS Code, and Claude are all optional. The script detects what you have and skips what you don't.
+WSL, Docker, npm, pip, Chrome, Edge, VS Code, and Claude are all optional.
 
 ---
 
@@ -74,18 +92,11 @@ git clone https://github.com/AbdulWaseaDev/WinDiskCleanup.git
 cd WinDiskCleanup
 ```
 
-**Option 3 — ZIP:** Download from GitHub and extract anywhere.
+**Option 3 — ZIP:** [Download the latest release](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest) and extract anywhere.
 
 ---
 
 ## Usage
-
-Open PowerShell as Administrator, then:
-
-> **First time only:** If PowerShell blocks the script, run this once:
-> ```powershell
-> Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-> ```
 
 ```powershell
 # Full cleanup
@@ -105,11 +116,8 @@ Open PowerShell as Administrator, then:
 
 # Skip all projects folder cleanup (node_modules, venvs, __pycache__)
 .\WinDiskCleanup.ps1 -SkipProjects
-```
 
-You can combine flags:
-
-```powershell
+# Combine flags
 .\WinDiskCleanup.ps1 -Interactive -SkipWSLCompact
 ```
 
@@ -117,17 +125,11 @@ You can combine flags:
 
 ## Configuration
 
-Edit `cleanup-config.ps1` to customize the script for your machine.
+Edit `cleanup-config.ps1` to customize for your machine.
 
-### Set your projects folder(s)
-
-Supports multiple folders across different drives — add as many as you need:
+### Projects folder(s)
 
 ```powershell
-# Single folder
-$Config_ProjectsPath = @("C:\Projects")
-
-# Multiple folders across different drives
 $Config_ProjectsPath = @(
     "C:\Projects",
     "D:\Dev",
@@ -135,7 +137,7 @@ $Config_ProjectsPath = @(
 )
 ```
 
-### Add inactive node_modules to delete
+### Inactive node_modules to delete
 
 ```powershell
 $Config_InactiveNodeModules = @(
@@ -144,7 +146,7 @@ $Config_InactiveNodeModules = @(
 )
 ```
 
-### Add inactive Python venvs to delete
+### Inactive Python venvs to delete
 
 ```powershell
 $Config_InactivePythonVenvs = @(
@@ -153,9 +155,7 @@ $Config_InactivePythonVenvs = @(
 )
 ```
 
-### Skip specific steps permanently
-
-Every step can be disabled individually in `cleanup-config.ps1`:
+### Skip steps permanently
 
 ```powershell
 # Browser caches
@@ -179,7 +179,7 @@ $Config_SkipClaude        = $true
 $Config_SkipVSCode        = $true
 $Config_SkipTeams         = $true
 
-# Projects folder
+# Projects
 $Config_SkipPycache       = $true
 $Config_SkipNodeModules   = $true
 $Config_SkipPythonVenvs   = $true
@@ -191,24 +191,16 @@ $Config_SkipWSLCompact    = $true
 $Config_SkipDockerCompact = $true
 ```
 
-Set any to `$true` to permanently skip that step without needing a CLI flag.
-
 ---
 
 ## Reports
 
-After every run, two report files are saved to your Desktop:
+After every run, two files are saved to your Desktop:
 
 - `WinDiskCleanup-YYYY-MM-DD_HH-mm.txt` — plain text summary
-- `WinDiskCleanup-YYYY-MM-DD_HH-mm.html` — interactive dark-theme HTML report (opens automatically)
+- `WinDiskCleanup-YYYY-MM-DD_HH-mm.html` — dark-theme HTML report (opens automatically)
 
-The HTML report includes:
-- Before/after disk space comparison
-- Savings broken down by category
-- Chrome cache per profile
-- Docker container status
-- Top 10 largest files on your drive
-- Warnings and errors log
+The HTML report includes before/after disk space, savings by category, Chrome per-profile breakdown, Docker container status, top 10 largest files, and a warnings/errors log.
 
 ---
 
@@ -230,8 +222,10 @@ MIT — see [LICENSE](LICENSE)
 
 ---
 
+<div align="center">
+
 Made by [Abdul Wasea](https://github.com/AbdulWaseaDev)
 
----
-
 If this saved you disk space, consider giving it a ⭐
+
+</div>
