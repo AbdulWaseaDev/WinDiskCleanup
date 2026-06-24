@@ -6,8 +6,7 @@ A PowerShell disk cleanup script for Windows developers. Frees up space by clean
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)
-![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg)
-![Tests](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?label=tests)
+[![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml)
 
 ---
 
