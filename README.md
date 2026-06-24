@@ -5,7 +5,8 @@ A PowerShell disk cleanup script for Windows developers. Frees up space by clean
 ![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)
 ![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)
 ![License](https://img.shields.io/badge/License-MIT-green)
-![Version](https://img.shields.io/badge/Version-1.4.0-brightgreen)
+![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)
+![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg)
 
 ---
 
@@ -16,21 +17,26 @@ A PowerShell disk cleanup script for Windows developers. Frees up space by clean
 | 1 | Chrome cache (all profiles) | Auto-detects all profiles |
 | 2 | Claude Desktop cache | Auto-detects MSIX install |
 | 3 | Microsoft Edge cache | Auto-detects all profiles |
-| 4 | npm cache | Skipped if npm not installed |
-| 5 | pip cache | Skipped if pip not installed |
-| 6 | Temp files | User temp + Windows temp |
-| 7 | Windows Update cache | Safely stops/restarts wuauserv |
-| 8 | Windows Store cache | wsreset |
-| 9 | Recycle Bin | Configurable |
-| 10 | VS Code duplicate extensions | Keeps newest version, removes older |
-| 11 | Projects __pycache__ | Configurable path |
-| 12 | Inactive node_modules | You define which ones |
-| 13 | Inactive Python venvs | You define which ones |
-| 14 | Docker prune | Docker Desktop or Docker in WSL — auto-detected |
-| 15 | WSL apt cleanup | apt clean + autoremove |
-| 16 | WSL + Docker vhdx compaction | Reclaims unused virtual disk space |
+| 4 | Firefox cache | Auto-detects all profiles |
+| 5 | Brave cache | Auto-detects all profiles |
+| 6 | npm cache | Skipped if npm not installed |
+| 7 | pip cache | Skipped if pip not installed |
+| 8 | Temp files | User temp + Windows temp |
+| 9 | Windows Update cache | Safely stops/restarts wuauserv |
+| 10 | Windows Store cache | wsreset |
+| 11 | Recycle Bin | Configurable |
+| 12 | VS Code duplicate extensions | Keeps newest version, removes older |
+| 13 | Microsoft Teams cache | Classic and new MSIX Teams |
+| 14 | Projects __pycache__ | Configurable path |
+| 15 | Inactive node_modules | You define which ones |
+| 16 | Inactive Python venvs | You define which ones |
+| 17 | Docker prune | Docker Desktop or Docker in WSL — auto-detected |
+| 18 | WSL apt cleanup | apt clean + autoremove |
+| 19 | WSL + Docker vhdx compaction | Reclaims unused virtual disk space |
 
 Everything is **auto-detected**. If a tool is not installed, that step is silently skipped.
+
+No telemetry. No network calls. Runs entirely offline.
 
 ---
 
@@ -138,6 +144,8 @@ Every step can be disabled individually in `cleanup-config.ps1`:
 # Browser caches
 $Config_SkipChrome        = $true
 $Config_SkipEdge          = $true
+$Config_SkipFirefox       = $true
+$Config_SkipBrave         = $true
 
 # Package managers
 $Config_SkipNpm           = $true
@@ -152,6 +160,7 @@ $Config_SkipRecycleBin    = $true
 # Apps
 $Config_SkipClaude        = $true
 $Config_SkipVSCode        = $true
+$Config_SkipTeams         = $true
 
 # Projects folder
 $Config_SkipPycache       = $true

@@ -1,6 +1,6 @@
 # ============================================================
 # WinDiskCleanup — Windows Disk Cleanup Script
-# Version: 1.4.0
+# Version: 1.5.0
 # Author: Abdul Wasea (github.com/AbdulWaseaDev)
 # License: MIT
 # ============================================================
@@ -63,6 +63,9 @@ $Config_SkipDocker           = $false
 $Config_SkipWSLApt           = $false
 $Config_SkipWSLCompact       = $false
 $Config_SkipDockerCompact    = $false
+$Config_SkipFirefox          = $false
+$Config_SkipBrave            = $false
+$Config_SkipTeams            = $false
 
 if (Test-Path $configPath) {
     . $configPath
@@ -123,7 +126,7 @@ function Confirm-Step($stepName) {
     return ($answer -eq '' -or $answer -match '^[Yy]')
 }
 
-function Compact-VhdxFile($vhdxFullPath, $label) {
+function Invoke-VhdxCompact($vhdxFullPath, $label) {
     if (-not $vhdxFullPath -or -not (Test-Path $vhdxFullPath)) {
         Write-Skipped "$label vhdx not found"; return $false
     }
@@ -243,6 +246,11 @@ $hasAnyDocker = $hasDockerNative -or $hasDockerWSL
 $claudePkg = Get-ChildItem "$env:LOCALAPPDATA\Packages" -Directory -ErrorAction SilentlyContinue |
              Where-Object { $_.Name -match "^Claude_" } | Select-Object -First 1
 
+# Auto-detect Teams (classic and new MSIX)
+$teamsOldPath = "$env:APPDATA\Microsoft\Teams"
+$teamsPkg     = Get-ChildItem "$env:LOCALAPPDATA\Packages" -Directory -ErrorAction SilentlyContinue |
+                Where-Object { $_.Name -match "^MSTeams_" } | Select-Object -First 1
+
 # ── Capture Before State ─────────────────────────────────────
 
 Write-Header "CAPTURING BEFORE STATE"
@@ -254,8 +262,16 @@ $beforeTemp       = Get-FolderSizeGB "$env:TEMP"
 $beforeWinTemp    = Get-FolderSizeGB "C:\Windows\Temp"
 $chromeBase       = "$env:LOCALAPPDATA\Google\Chrome\User Data"
 $edgeBase         = "$env:LOCALAPPDATA\Microsoft\Edge\User Data"
+$firefoxBase      = "$env:APPDATA\Mozilla\Firefox\Profiles"
+$braveBase        = "$env:LOCALAPPDATA\BraveSoftware\Brave-Browser\User Data"
 $beforeChrome     = Get-FolderSizeGB $chromeBase
 $beforeEdge       = Get-FolderSizeGB $edgeBase
+$beforeFirefox    = Get-FolderSizeGB $firefoxBase
+$beforeBrave      = Get-FolderSizeGB $braveBase
+$beforeTeams      = [math]::Round(
+                        (Get-FolderSizeGB $teamsOldPath) +
+                        $(if ($teamsPkg) { Get-FolderSizeGB (Join-Path $teamsPkg.FullName "LocalCache") } else { 0 }),
+                    2)
 $beforeWinUpdate  = Get-FolderSizeGB "C:\Windows\SoftwareDistribution\Download"
 $beforeProjects = ($Config_ProjectsPath | Where-Object { Test-Path $_ } |
                    ForEach-Object { Get-FolderSizeGB $_ } |
@@ -283,6 +299,9 @@ Write-Host "  C: Free           : $beforeFree GB"
 Write-Host "  C: Used           : $beforeUsed GB"
 Write-Host "  Chrome            : $beforeChrome GB $(if ($beforeChrome -eq 0) { '(not installed)' })"
 Write-Host "  Edge              : $beforeEdge GB $(if ($beforeEdge -eq 0) { '(not installed)' })"
+Write-Host "  Firefox           : $beforeFirefox GB $(if (-not (Test-Path $firefoxBase)) { '(not installed)' })"
+Write-Host "  Brave             : $beforeBrave GB $(if (-not (Test-Path $braveBase)) { '(not installed)' })"
+Write-Host "  Teams cache       : $beforeTeams GB $(if (-not (Test-Path $teamsOldPath) -and -not $teamsPkg) { '(not installed)' })"
 Write-Host "  npm cache         : $beforeNpm GB $(if (-not $hasNpm) { '(npm not found)' })"
 Write-Host "  Temp files        : $([math]::Round($beforeTemp + $beforeWinTemp, 2)) GB"
 Write-Host "  Windows Update    : $beforeWinUpdate GB"
@@ -316,11 +335,11 @@ if (-not (Test-Path $chromeBase)) {
     $profileDirs  = Get-ChildItem $chromeBase -Directory -ErrorAction SilentlyContinue |
                     Where-Object { $_.Name -match "^Profile|^Default" }
     $count = 0; $locked = 0
-    foreach ($profile in $profileDirs) {
+    foreach ($chromeProfile in $profileDirs) {
         foreach ($folder in $cacheFolders) {
-            $path = Join-Path $profile.FullName $folder
+            $path = Join-Path $chromeProfile.FullName $folder
             if (Test-Path $path) {
-                if ($DryRun) { Write-DryRun "$($profile.Name)\$folder ($(Get-FolderSizeGB $path) GB)" }
+                if ($DryRun) { Write-DryRun "$($chromeProfile.Name)\$folder ($(Get-FolderSizeGB $path) GB)" }
                 else {
                     try {
                         Remove-Item "$path\*" -Recurse -Force -ErrorAction Stop
@@ -381,11 +400,11 @@ if (-not (Test-Path $edgeBase)) {
     $edgeProfileDirs = Get-ChildItem $edgeBase -Directory -ErrorAction SilentlyContinue |
                        Where-Object { $_.Name -match "^Profile|^Default" }
     $count = 0; $locked = 0
-    foreach ($profile in $edgeProfileDirs) {
+    foreach ($edgeProfile in $edgeProfileDirs) {
         foreach ($folder in $cacheFolders) {
-            $path = Join-Path $profile.FullName $folder
+            $path = Join-Path $edgeProfile.FullName $folder
             if (Test-Path $path) {
-                if ($DryRun) { Write-DryRun "Edge $($profile.Name)\$folder" }
+                if ($DryRun) { Write-DryRun "Edge $($edgeProfile.Name)\$folder" }
                 else {
                     try {
                         Remove-Item "$path\*" -Recurse -Force -ErrorAction Stop
@@ -404,9 +423,95 @@ if (-not (Test-Path $edgeBase)) {
     Add-Report "Edge Cache" $status $note
 } else { Write-Skipped "Edge cache"; Add-Report "Edge Cache" "SKIPPED" "-" }
 
-# ── Step 4: npm Cache ────────────────────────────────────────
+# ── Step 4: Firefox Cache ────────────────────────────────────
 
-Write-Header "STEP 4 — npm Cache Cleanup"
+Write-Header "STEP 4 — Firefox Cache Cleanup"
+
+if (-not (Test-Path $firefoxBase)) {
+    Write-Skipped "Firefox not installed"; Add-Report "Firefox Cache" "SKIPPED" "not installed"
+} elseif ($Config_SkipFirefox) {
+    Write-Skipped "Firefox cache (disabled in config)"; Add-Report "Firefox Cache" "SKIPPED" "disabled in config"
+} elseif (Confirm-Step "Firefox Cache Cleanup") {
+    $firefoxWasRunning = $false
+    if (Get-Process -Name "firefox" -ErrorAction SilentlyContinue) {
+        $firefoxWasRunning = $true
+        Write-Info "Firefox is running — closing it to unlock cache files"
+        if (-not $DryRun) {
+            Stop-Process -Name "firefox" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+    $ffProfiles = Get-ChildItem $firefoxBase -Directory -ErrorAction SilentlyContinue
+    $count = 0; $locked = 0
+    foreach ($ffProfile in $ffProfiles) {
+        $cachePath = Join-Path $ffProfile.FullName "cache2"
+        if (Test-Path $cachePath) {
+            if ($DryRun) { Write-DryRun "$($ffProfile.Name)\cache2 ($(Get-FolderSizeGB $cachePath) GB)" }
+            else {
+                try {
+                    Remove-Item "$cachePath\*" -Recurse -Force -ErrorAction Stop
+                } catch {
+                    $locked++
+                    Write-ErrorLog "Firefox Cache" "Could not delete $cachePath — $($_.Exception.Message)"
+                }
+            }
+            $count++
+        }
+    }
+    $status = if ($locked -gt 0) { "WARN" } else { "OK" }
+    $note   = "$count profiles processed$(if ($locked -gt 0) { ", $locked locked/failed" })$(if ($firefoxWasRunning) { ' (Firefox was closed)' })"
+    Write-Done "$note"
+    Add-Report "Firefox Cache" $status $note
+} else { Write-Skipped "Firefox cache"; Add-Report "Firefox Cache" "SKIPPED" "-" }
+
+# ── Step 5: Brave Cache ──────────────────────────────────────
+
+Write-Header "STEP 5 — Brave Cache Cleanup"
+
+if (-not (Test-Path $braveBase)) {
+    Write-Skipped "Brave not installed"; Add-Report "Brave Cache" "SKIPPED" "not installed"
+} elseif ($Config_SkipBrave) {
+    Write-Skipped "Brave cache (disabled in config)"; Add-Report "Brave Cache" "SKIPPED" "disabled in config"
+} elseif (Confirm-Step "Brave Cache Cleanup") {
+    $braveWasRunning = $false
+    if (Get-Process -Name "brave" -ErrorAction SilentlyContinue) {
+        $braveWasRunning = $true
+        Write-Info "Brave is running — closing it to unlock cache files"
+        if (-not $DryRun) {
+            Stop-Process -Name "brave" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+    $cacheFolders     = @("Cache", "Code Cache", "GPUCache", "DawnCache", "ShaderCache")
+    $braveProfileDirs = Get-ChildItem $braveBase -Directory -ErrorAction SilentlyContinue |
+                        Where-Object { $_.Name -match "^Profile|^Default" }
+    $count = 0; $locked = 0
+    foreach ($braveProfile in $braveProfileDirs) {
+        foreach ($folder in $cacheFolders) {
+            $path = Join-Path $braveProfile.FullName $folder
+            if (Test-Path $path) {
+                if ($DryRun) { Write-DryRun "Brave $($braveProfile.Name)\$folder ($(Get-FolderSizeGB $path) GB)" }
+                else {
+                    try {
+                        Remove-Item "$path\*" -Recurse -Force -ErrorAction Stop
+                    } catch {
+                        $locked++
+                        Write-ErrorLog "Brave Cache" "Could not delete $path — $($_.Exception.Message)"
+                    }
+                }
+                $count++
+            }
+        }
+    }
+    $status = if ($locked -gt 0) { "WARN" } else { "OK" }
+    $note   = "$count folders processed$(if ($locked -gt 0) { ", $locked locked/failed" })$(if ($braveWasRunning) { ' (Brave was closed)' })"
+    Write-Done "$note"
+    Add-Report "Brave Cache" $status $note
+} else { Write-Skipped "Brave cache"; Add-Report "Brave Cache" "SKIPPED" "-" }
+
+# ── Step 6: npm Cache ────────────────────────────────────────
+
+Write-Header "STEP 6 — npm Cache Cleanup"
 
 if (-not $hasNpm) {
     Write-Skipped "npm not installed"; Add-Report "npm Cache" "SKIPPED" "not installed"
@@ -420,7 +525,7 @@ if (-not $hasNpm) {
 
 # ── Step 5: pip Cache ────────────────────────────────────────
 
-Write-Header "STEP 5 — pip Cache Cleanup"
+Write-Header "STEP 7 — pip Cache Cleanup"
 
 if (-not $hasPip) {
     Write-Skipped "pip not installed"; Add-Report "pip Cache" "SKIPPED" "not installed"
@@ -433,7 +538,7 @@ if (-not $hasPip) {
 
 # ── Step 6: Temp Files ───────────────────────────────────────
 
-Write-Header "STEP 6 — Temp Files Cleanup"
+Write-Header "STEP 8 — Temp Files Cleanup"
 
 if ($Config_SkipTemp) {
     Write-Skipped "Temp files (disabled in config)"; Add-Report "Temp Files" "SKIPPED" "disabled in config"
@@ -449,7 +554,7 @@ if ($Config_SkipTemp) {
 
 # ── Step 7: Windows Update Cache ────────────────────────────
 
-Write-Header "STEP 7 — Windows Update Cache Cleanup"
+Write-Header "STEP 9 — Windows Update Cache Cleanup"
 
 if ($Config_SkipWindowsUpdate) {
     Write-Skipped "Windows Update cache (disabled in config)"; Add-Report "Windows Update Cache" "SKIPPED" "disabled in config"
@@ -467,7 +572,7 @@ if ($Config_SkipWindowsUpdate) {
 
 # ── Step 8: Windows Store Cache ─────────────────────────────
 
-Write-Header "STEP 8 — Windows Store Cache Cleanup"
+Write-Header "STEP 10 — Windows Store Cache Cleanup"
 
 if ($Config_SkipWindowsStore) {
     Write-Skipped "Windows Store cache (disabled in config)"; Add-Report "Windows Store Cache" "SKIPPED" "disabled in config"
@@ -478,7 +583,7 @@ if ($Config_SkipWindowsStore) {
 
 # ── Step 9: Recycle Bin ──────────────────────────────────────
 
-Write-Header "STEP 9 — Empty Recycle Bin"
+Write-Header "STEP 11 — Empty Recycle Bin"
 
 if ($Config_SkipRecycleBin) {
     Write-Skipped "Recycle Bin (disabled in config)"; Add-Report "Recycle Bin" "SKIPPED" "disabled in config"
@@ -497,7 +602,7 @@ if ($Config_SkipRecycleBin) {
 
 # ── Step 10: VS Code Duplicate Extensions ───────────────────
 
-Write-Header "STEP 10 — VS Code Duplicate Extension Cleanup"
+Write-Header "STEP 12 — VS Code Duplicate Extension Cleanup"
 
 if (-not $hasVSCode) {
     Write-Skipped "VS Code not installed"; Add-Report "VS Code Duplicates" "SKIPPED" "not installed"
@@ -530,9 +635,53 @@ if (-not $hasVSCode) {
     Add-Report "VS Code Duplicates" "OK" "$removed removed"
 } else { Write-Skipped "VS Code extensions"; Add-Report "VS Code Duplicates" "SKIPPED" "-" }
 
-# ── Step 11: Projects __pycache__ ──────────────────────────
+# ── Step 13: Microsoft Teams Cache ──────────────────────────
 
-Write-Header "STEP 11 — Projects __pycache__ Cleanup"
+Write-Header "STEP 13 — Microsoft Teams Cache Cleanup"
+
+$hasTeams = (Test-Path $teamsOldPath) -or ($null -ne $teamsPkg)
+
+if (-not $hasTeams) {
+    Write-Skipped "Microsoft Teams not installed"; Add-Report "Teams Cache" "SKIPPED" "not installed"
+} elseif ($Config_SkipTeams) {
+    Write-Skipped "Teams cache (disabled in config)"; Add-Report "Teams Cache" "SKIPPED" "disabled in config"
+} elseif (Confirm-Step "Microsoft Teams Cache Cleanup") {
+    if (Get-Process -Name "Teams","ms-teams" -ErrorAction SilentlyContinue) {
+        Write-Info "Teams is running — closing it to unlock cache files"
+        if (-not $DryRun) {
+            Stop-Process -Name "Teams","ms-teams" -Force -ErrorAction SilentlyContinue
+            Start-Sleep -Seconds 2
+        }
+    }
+    $totalCleared = 0
+    # Classic Teams
+    if (Test-Path $teamsOldPath) {
+        $teamsCacheFolders = @("Cache", "blob_storage", "databases", "GPUCache", "IndexedDB", "Local Storage", "tmp")
+        foreach ($folder in $teamsCacheFolders) {
+            $path = Join-Path $teamsOldPath $folder
+            if (Test-Path $path) {
+                if ($DryRun) { Write-DryRun "Teams\$folder ($(Get-FolderSizeGB $path) GB)" }
+                else { Remove-Item "$path\*" -Recurse -Force -ErrorAction SilentlyContinue }
+                $totalCleared++
+            }
+        }
+    }
+    # New Teams (MSIX)
+    if ($teamsPkg) {
+        $newTeamsCache = Join-Path $teamsPkg.FullName "LocalCache"
+        if (Test-Path $newTeamsCache) {
+            if ($DryRun) { Write-DryRun "New Teams LocalCache ($(Get-FolderSizeGB $newTeamsCache) GB)" }
+            else { Remove-Item "$newTeamsCache\*" -Recurse -Force -ErrorAction SilentlyContinue }
+            $totalCleared++
+        }
+    }
+    Write-Done "Teams cache cleared ($totalCleared cache locations)"
+    Add-Report "Teams Cache" "OK" "$totalCleared locations cleared"
+} else { Write-Skipped "Teams cache"; Add-Report "Teams Cache" "SKIPPED" "-" }
+
+# ── Step 14: Projects __pycache__ ──────────────────────────
+
+Write-Header "STEP 14 — Projects __pycache__ Cleanup"
 
 if ($Config_ProjectsPath.Count -eq 0 -or $SkipProjects) {
     Write-Skipped "Projects path not configured (set Config_ProjectsPath in cleanup-config.ps1)"
@@ -557,7 +706,7 @@ if ($Config_ProjectsPath.Count -eq 0 -or $SkipProjects) {
 
 # ── Step 12: Inactive node_modules ──────────────────────────
 
-Write-Header "STEP 12 — Inactive node_modules Cleanup"
+Write-Header "STEP 15 — Inactive node_modules Cleanup"
 
 if ($Config_InactiveNodeModules.Count -eq 0 -or $SkipProjects) {
     Write-Skipped "No inactive node_modules configured (edit cleanup-config.ps1 to add paths)"
@@ -584,7 +733,7 @@ if ($Config_InactiveNodeModules.Count -eq 0 -or $SkipProjects) {
 
 # ── Step 13: Inactive Python Venvs ──────────────────────────
 
-Write-Header "STEP 13 — Inactive Python Venvs Cleanup"
+Write-Header "STEP 16 — Inactive Python Venvs Cleanup"
 
 if ($Config_InactivePythonVenvs.Count -eq 0 -or $SkipProjects) {
     Write-Skipped "No inactive Python venvs configured (edit cleanup-config.ps1 to add paths)"
@@ -611,7 +760,7 @@ if ($Config_InactivePythonVenvs.Count -eq 0 -or $SkipProjects) {
 
 # ── Step 14: Docker Prune (via WSL) ─────────────────────────
 
-Write-Header "STEP 14 — Docker Cleanup"
+Write-Header "STEP 17 — Docker Cleanup"
 
 if ($Config_SkipDocker) {
     Write-Skipped "Docker cleanup (disabled in config)"; Add-Report "Docker Prune" "SKIPPED" "disabled"
@@ -668,7 +817,7 @@ if ($Config_SkipDocker) {
 
 # ── Step 16: WSL apt Cleanup ─────────────────────────────────
 
-Write-Header "STEP 15 — WSL Ubuntu apt Cleanup"
+Write-Header "STEP 18 — WSL Ubuntu apt Cleanup"
 
 if (-not $hasWSL) {
     Write-Skipped "WSL not installed"; Add-Report "WSL apt Cleanup" "SKIPPED" "WSL not installed"
@@ -693,7 +842,7 @@ if (-not $hasWSL) {
 
 # ── Step 17: WSL + Docker Disk Compaction ───────────────────
 
-Write-Header "STEP 16 — WSL + Docker Disk Compaction"
+Write-Header "STEP 19 — WSL + Docker Disk Compaction"
 
 if ($Config_SkipWSLCompact) {
     Write-Skipped "Compaction disabled in config/flag"
@@ -715,7 +864,7 @@ if ($Config_SkipWSLCompact) {
 
     if ($wslVhdxList.Count -gt 0) {
         foreach ($distro in $wslVhdxList) {
-            Compact-VhdxFile $distro.Path "WSL [$($distro.Distro)]" | Out-Null
+            Invoke-VhdxCompact $distro.Path "WSL [$($distro.Distro)]" | Out-Null
         }
         Add-Report "WSL vhdx Compact" "OK" "$($wslVhdxList.Count) distro(s) compacted"
     } else {
@@ -723,7 +872,7 @@ if ($Config_SkipWSLCompact) {
     }
 
     if (-not $Config_SkipDockerCompact -and $dockerVhdx) {
-        Compact-VhdxFile $dockerVhdx.FullName "Docker" | Out-Null
+        Invoke-VhdxCompact $dockerVhdx.FullName "Docker" | Out-Null
         Add-Report "Docker vhdx Compact" "OK" "compacted"
     } elseif ($Config_SkipDockerCompact) {
         Write-Skipped "Docker compaction disabled in config"
@@ -787,6 +936,12 @@ $afterFree      = Get-FreeGB
 $afterUsed      = Get-UsedGB
 $afterChrome    = Get-FolderSizeGB $chromeBase
 $afterEdge      = Get-FolderSizeGB $edgeBase
+$afterFirefox   = Get-FolderSizeGB $firefoxBase
+$afterBrave     = Get-FolderSizeGB $braveBase
+$afterTeams     = [math]::Round(
+                      (Get-FolderSizeGB $teamsOldPath) +
+                      $(if ($teamsPkg) { Get-FolderSizeGB (Join-Path $teamsPkg.FullName "LocalCache") } else { 0 }),
+                  2)
 $afterNpm       = Get-FolderSizeGB "$env:LOCALAPPDATA\npm-cache"
 $afterTemp      = Get-FolderSizeGB "$env:TEMP"
 $afterWinTemp   = Get-FolderSizeGB "C:\Windows\Temp"
@@ -859,6 +1014,9 @@ $txt = @(
     "C: Used       : $beforeUsed GB",
     "Chrome        : $beforeChrome GB",
     "Edge          : $beforeEdge GB",
+    "Firefox       : $beforeFirefox GB",
+    "Brave         : $beforeBrave GB",
+    "Teams cache   : $beforeTeams GB",
     "npm cache     : $beforeNpm GB",
     "Temp files    : $([math]::Round($beforeTemp+$beforeWinTemp,2)) GB",
     "Win Update    : $beforeWinUpdate GB",
@@ -871,6 +1029,9 @@ $txt = @(
     "C: Used       : $afterUsed GB",
     "Chrome        : $afterChrome GB",
     "Edge          : $afterEdge GB",
+    "Firefox       : $afterFirefox GB",
+    "Brave         : $afterBrave GB",
+    "Teams cache   : $afterTeams GB",
     "npm cache     : $afterNpm GB",
     "Temp files    : $([math]::Round($afterTemp+$afterWinTemp,2)) GB",
     "Win Update    : $afterWinUpdate GB",
@@ -946,6 +1107,9 @@ tr:hover td{background:#1e2a4a}
 <table><tr><th>Category</th><th>Before</th><th>After</th><th>Saved</th></tr>
 <tr><td>Chrome</td><td>$beforeChrome GB</td><td>$afterChrome GB</td><td><b>$([math]::Round($beforeChrome-$afterChrome,2)) GB</b></td></tr>
 <tr><td>Edge</td><td>$beforeEdge GB</td><td>$afterEdge GB</td><td><b>$([math]::Round($beforeEdge-$afterEdge,2)) GB</b></td></tr>
+<tr><td>Firefox</td><td>$beforeFirefox GB</td><td>$afterFirefox GB</td><td><b>$([math]::Round($beforeFirefox-$afterFirefox,2)) GB</b></td></tr>
+<tr><td>Brave</td><td>$beforeBrave GB</td><td>$afterBrave GB</td><td><b>$([math]::Round($beforeBrave-$afterBrave,2)) GB</b></td></tr>
+<tr><td>Teams</td><td>$beforeTeams GB</td><td>$afterTeams GB</td><td><b>$([math]::Round($beforeTeams-$afterTeams,2)) GB</b></td></tr>
 <tr><td>npm cache</td><td>$beforeNpm GB</td><td>$afterNpm GB</td><td><b>$([math]::Round($beforeNpm-$afterNpm,2)) GB</b></td></tr>
 <tr><td>Temp Files</td><td>$([math]::Round($beforeTemp+$beforeWinTemp,2)) GB</td><td>$([math]::Round($afterTemp+$afterWinTemp,2)) GB</td><td><b>$([math]::Round(($beforeTemp+$beforeWinTemp)-($afterTemp+$afterWinTemp),2)) GB</b></td></tr>
 <tr><td>Windows Update</td><td>$beforeWinUpdate GB</td><td>$afterWinUpdate GB</td><td><b>$([math]::Round($beforeWinUpdate-$afterWinUpdate,2)) GB</b></td></tr>
@@ -966,7 +1130,7 @@ $(if ($errorLog.Count -gt 0) {
 ($errorLog | ForEach-Object { "<tr><td style='color:#FF9800;font-family:monospace'>$_</td></tr>" } | Out-String) +
 "</table>"
 })
-<div class="footer">Generated by WinDiskCleanup v1.4.0 — github.com/AbdulWaseaDev/WinDiskCleanup</div>
+<div class="footer">Generated by WinDiskCleanup v1.5.0 — github.com/AbdulWaseaDev/WinDiskCleanup</div>
 </body></html>
 "@
 

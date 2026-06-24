@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.5.0
+- Added Firefox cache cleanup — auto-detects all profiles, closes Firefox if running
+- Added Brave cache cleanup — auto-detects all profiles, closes Brave if running
+- Added Microsoft Teams cache cleanup — supports both classic Teams and new MSIX Teams
+- Fixed `$profile` automatic variable conflict in Chrome and Edge loops (renamed to `$chromeProfile` / `$edgeProfile`)
+- Renamed `Compact-VhdxFile` to `Invoke-VhdxCompact` to use a PSScriptAnalyzer-approved verb
+- Added GitHub Actions CI workflow (`PSScriptAnalyzer` on every push and PR)
+- Steps renumbered: 19 total steps (was 16)
+
 ## v1.4.0
 - `$Config_ProjectsPath` is now an array — supports multiple project folders across different drives (e.g. `C:\Projects`, `D:\Dev`, `E:\Work`)
 - `__pycache__` cleanup now scans all configured project folders, not just one
