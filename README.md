@@ -188,7 +188,7 @@ The HTML report includes:
 
 ## Contributing
 
-Pull requests are welcome. If you find a bug or want a new cleanup step, open an issue.
+Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines, testing steps, and how to suggest new cleanup steps.
 
 ---
 
@@ -205,3 +205,7 @@ MIT — see [LICENSE](LICENSE)
 ---
 
 Made by [Abdul Wasea](https://github.com/AbdulWaseaDev)
+
+---
+
+If this saved you disk space, consider giving it a ⭐
