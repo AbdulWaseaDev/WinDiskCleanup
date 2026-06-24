@@ -192,6 +192,12 @@ Pull requests are welcome. If you find a bug or want a new cleanup step, open an
 
 ---
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history.
+
+---
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
