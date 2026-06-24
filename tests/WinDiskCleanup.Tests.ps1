@@ -38,19 +38,30 @@ Describe "Repository structure" {
 }
 
 Describe "cleanup-config.ps1 — default values" {
-    It "path arrays are arrays and all skip flags default to false" {
-        . $script:ConfigFile
-        $Config_ProjectsPath        | Should -BeOfType [array]
-        $Config_InactiveNodeModules | Should -BeOfType [array]
-        $Config_InactivePythonVenvs | Should -BeOfType [array]
-        @(
-            $Config_SkipChrome, $Config_SkipEdge, $Config_SkipFirefox, $Config_SkipBrave,
-            $Config_SkipNpm, $Config_SkipPip,
-            $Config_SkipTemp, $Config_SkipWindowsUpdate, $Config_SkipWindowsStore, $Config_SkipRecycleBin,
-            $Config_SkipClaude, $Config_SkipVSCode, $Config_SkipTeams,
-            $Config_SkipPycache, $Config_SkipNodeModules, $Config_SkipPythonVenvs,
-            $Config_SkipDocker, $Config_SkipWSLApt, $Config_SkipWSLCompact, $Config_SkipDockerCompact
-        ) | Should -Not -Contain $true
+    It "path arrays use array syntax and all skip flags default to false" {
+        $errors = $null
+        $ast = [System.Management.Automation.Language.Parser]::ParseFile(
+            $script:ConfigFile, [ref]$null, [ref]$errors)
+        $errors | Should -BeNullOrEmpty
+
+        $assignments = $ast.FindAll(
+            { param($node) $node -is [System.Management.Automation.Language.AssignmentStatementAst] },
+            $true
+        )
+
+        foreach ($name in @("Config_ProjectsPath", "Config_InactiveNodeModules", "Config_InactivePythonVenvs")) {
+            $a = $assignments | Where-Object { $_.Left.VariablePath.UserPath -eq $name }
+            $a | Should -Not -BeNullOrEmpty -Because "$name must be defined"
+            $a.Right | Should -BeOfType [System.Management.Automation.Language.ArrayExpressionAst] `
+                -Because "$name should be assigned an array literal"
+        }
+
+        $skipVars = $assignments | Where-Object { $_.Left.VariablePath.UserPath -like "Config_Skip*" }
+        $skipVars.Count | Should -BeGreaterThan 0
+        foreach ($a in $skipVars) {
+            $a.Right.ToString() | Should -Be '$false' `
+                -Because "$($a.Left.VariablePath.UserPath) should default to false"
+        }
     }
 }
 
