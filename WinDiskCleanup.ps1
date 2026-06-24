@@ -148,13 +148,12 @@ exit
 # Run a WSL bash command with a timeout (seconds). Returns output or $null on timeout.
 function Invoke-WSLCommand($bashCmd, $timeoutSec = 30) {
     $job = Start-Job -ScriptBlock {
-        param($cmd)
         $prevEnc = [Console]::OutputEncoding
         [Console]::OutputEncoding = [System.Text.Encoding]::Unicode
-        $out = wsl -e bash -c $cmd 2>&1
+        $out = wsl -e bash -c $using:bashCmd 2>&1
         [Console]::OutputEncoding = $prevEnc
         $out
-    } -ArgumentList $bashCmd
+    }
     $completed = Wait-Job $job -Timeout $timeoutSec
     if ($completed) {
         $result = Receive-Job $job
@@ -289,7 +288,7 @@ if (Test-Path $chromeBase) {
             $pref = Join-Path $_.FullName "Preferences"
             $email = ""
             if (Test-Path $pref) {
-                try { $email = (Get-Content $pref -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue).account_info[0].email } catch {}
+                try { $email = (Get-Content $pref -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue).account_info[0].email } catch { $email = "" }
             }
             $chromeProfilesBefore[$_.Name] = @{ Size = Get-FolderSizeGB $_.FullName; Email = if ($email) { $email } else { "unknown" } }
         }
