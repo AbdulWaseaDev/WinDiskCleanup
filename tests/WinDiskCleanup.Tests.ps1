@@ -52,8 +52,7 @@ Describe "cleanup-config.ps1 — default values" {
         foreach ($name in @("Config_ProjectsPath", "Config_InactiveNodeModules", "Config_InactivePythonVenvs")) {
             $a = $assignments | Where-Object { $_.Left.VariablePath.UserPath -eq $name }
             $a | Should -Not -BeNullOrEmpty -Because "$name must be defined"
-            $a.Right | Should -BeOfType [System.Management.Automation.Language.ArrayExpressionAst] `
-                -Because "$name should be assigned an array literal"
+            $a.Right.Extent.Text | Should -Match '@\(' -Because "$name should be assigned an array literal"
         }
 
         $skipVars = $assignments | Where-Object { $_.Left.VariablePath.UserPath -like "Config_Skip*" }
