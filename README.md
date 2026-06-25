@@ -15,6 +15,8 @@ and inactive project dependencies — all in a single run.
 
 [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Contributing](#contributing)
 
+![Demo](assets/demo.gif)
+
 </div>
 
 ---
