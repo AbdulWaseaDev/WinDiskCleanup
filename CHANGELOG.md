@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.1
+- Fixed parse errors on PowerShell 5.1 — added UTF-8 BOM so PS 5.1 reads the file correctly instead of misinterpreting em-dash bytes as string terminators
+- Fixed `if` expression used as a hashtable value (not valid in PS 5.1) — pre-computed `$emailVal` for Chrome profile email detection
+- Fixed nested double quotes inside `$()` in a double-quoted string — pre-computed `$projectsFolderDesc` for projects folder status line
+- Improved Pester tests — replaced dot-source approach with AST parsing to avoid Pester v5 scope isolation issues
+- Improved README — centered header, navigation links, Quick Start section, single CI badge
+
 ## v1.5.0
 - Added Firefox cache cleanup — auto-detects all profiles, closes Firefox if running
 - Added Brave cache cleanup — auto-detects all profiles, closes Brave if running
