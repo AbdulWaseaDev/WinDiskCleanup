@@ -10,7 +10,7 @@ and inactive project dependencies — all in a single run.
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.5.0-brightgreen)](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest)
+[![Version](https://img.shields.io/badge/Version-1.6.0-brightgreen)](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest)
 [![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml)
 
 [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Contributing](#contributing)
@@ -48,18 +48,30 @@ cd WinDiskCleanup
 | 5 | Brave cache | All profiles, auto-detected |
 | 6 | npm cache | Skipped if npm not installed |
 | 7 | pip cache | Skipped if pip not installed |
-| 8 | Temp files | User temp + Windows temp |
-| 9 | Windows Update cache | Safely stops/restarts wuauserv |
-| 10 | Windows Store cache | wsreset |
-| 11 | Recycle Bin | Configurable |
-| 12 | VS Code duplicate extensions | Keeps newest version only |
-| 13 | Microsoft Teams cache | Classic and MSIX Teams |
-| 14 | Projects `__pycache__` | Configurable path |
-| 15 | Inactive `node_modules` | You define which ones |
-| 16 | Inactive Python venvs | You define which ones |
-| 17 | Docker prune | Docker Desktop or Docker in WSL |
-| 18 | WSL apt cleanup | `apt clean` + `autoremove` |
-| 19 | WSL + Docker vhdx compaction | Reclaims unused virtual disk space |
+| 8 | Yarn cache | Skipped if not installed |
+| 9 | pnpm store | Skipped if not installed |
+| 10 | NuGet packages cache | `~\.nuget\packages`, skipped if not found |
+| 11 | Maven local repository | `~\.m2\repository`, skipped if not found |
+| 12 | Gradle caches | `~\.gradle\caches`, skipped if not found |
+| 13 | Cargo registry | `~\.cargo\registry` + `git`, skipped if not found |
+| 14 | Go module cache | `go clean -modcache`, skipped if not found |
+| 15 | Flutter/Dart pub cache | `%LOCALAPPDATA%\Pub\Cache`, skipped if not found |
+| 16 | Temp files | User temp + Windows temp |
+| 17 | Crash dumps + WER reports | `CrashDumps` + Windows Error Reporting |
+| 18 | Windows Update cache | Safely stops/restarts wuauserv |
+| 19 | DISM component store | Removes superseded Windows components (WinSxS) |
+| 20 | Windows Store cache | wsreset |
+| 21 | Recycle Bin | Configurable |
+| 22 | VS Code duplicate extensions | Keeps newest version only |
+| 23 | Microsoft Teams cache | Classic and MSIX Teams |
+| 24 | Projects `__pycache__` | Scans configured project folders |
+| 25 | Inactive `node_modules` | Auto-scanned, asks before deleting |
+| 26 | Inactive Python venvs | Auto-scanned, asks before deleting |
+| 27 | Build artifacts | `bin/obj/dist/target/.next` etc., asks before deleting |
+| 28 | Git repositories clean | `git clean -fdX` on all repos, asks before running |
+| 29 | Docker prune | Docker Desktop or Docker in WSL |
+| 30 | WSL apt cleanup | `apt clean` + `autoremove` |
+| 31 | WSL + Docker vhdx compaction | Reclaims unused virtual disk space |
 
 Everything is **auto-detected** — if a tool is not installed, that step is silently skipped.  
 No telemetry. No network calls. Runs entirely offline.

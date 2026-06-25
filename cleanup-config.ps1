@@ -52,9 +52,25 @@ $Config_SkipVSCode        = $false   # Skip VS Code duplicate extension cleanup
 $Config_SkipTeams         = $false   # Skip Microsoft Teams cache cleanup
 
 # Projects folder
-$Config_SkipPycache       = $false   # Skip __pycache__ cleanup in projects folders
-$Config_SkipNodeModules   = $false   # Skip inactive node_modules cleanup
-$Config_SkipPythonVenvs   = $false   # Skip inactive Python venvs cleanup
+$Config_SkipPycache          = $false   # Skip __pycache__ cleanup in projects folders
+$Config_SkipNodeModules      = $false   # Skip inactive node_modules cleanup
+$Config_SkipPythonVenvs      = $false   # Skip inactive Python venvs cleanup
+$Config_SkipBuildArtifacts   = $false   # Skip build artifact cleanup (bin/obj/dist/target/etc.)
+$Config_SkipGitClean         = $false   # Skip git clean -fdX on all repos in project folders
+
+# Package manager caches (auto-detected, no config needed)
+$Config_SkipYarn             = $false   # Skip Yarn cache cleanup
+$Config_SkipPnpm             = $false   # Skip pnpm store cleanup
+$Config_SkipNuGet            = $false   # Skip NuGet packages cache cleanup
+$Config_SkipMaven            = $false   # Skip Maven local repository cleanup
+$Config_SkipGradle           = $false   # Skip Gradle caches cleanup
+$Config_SkipCargo            = $false   # Skip Cargo registry cleanup
+$Config_SkipGo               = $false   # Skip Go module cache cleanup
+$Config_SkipFlutter          = $false   # Skip Flutter/Dart pub cache cleanup
+
+# System
+$Config_SkipCrashDumps       = $false   # Skip crash dumps + WER reports cleanup
+$Config_SkipDISM             = $false   # Skip DISM WinSxS component store cleanup (slow)
 
 # Docker / WSL
 $Config_SkipDocker        = $false   # Skip Docker prune entirely

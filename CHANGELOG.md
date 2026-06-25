@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.6.0
+- Added Yarn, pnpm, NuGet, Maven, Gradle, Cargo, Go, and Flutter/Dart cache cleanup — all auto-detected, zero config, skipped silently if not installed
+- Added build artifact cleanup — auto-scans project folders for `bin/`, `obj/`, `dist/`, `target/`, `.next/` etc. using marker files (`*.csproj`, `Cargo.toml`, `pom.xml`, `package.json`); lists candidates and asks before deleting
+- Added git repository clean — runs `git clean -fdX` (removes gitignored files only) across all repos under configured project folders; lists repos and asks before running
+- Added crash dumps cleanup — removes `CrashDumps` folder and Windows Error Reporting archives
+- Added DISM component store cleanup — runs `dism /online /cleanup-image /startcomponentcleanup` to reclaim WinSxS space
+- Steps renumbered: 31 total steps (was 19)
+
 ## v1.5.1
 - Fixed parse errors on PowerShell 5.1 — added UTF-8 BOM so PS 5.1 reads the file correctly instead of misinterpreting em-dash bytes as string terminators
 - Fixed `if` expression used as a hashtable value (not valid in PS 5.1) — pre-computed `$emailVal` for Chrome profile email detection

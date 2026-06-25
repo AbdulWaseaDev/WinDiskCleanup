@@ -1,6 +1,6 @@
 ﻿# ============================================================
 # WinDiskCleanup — Windows Disk Cleanup Script
-# Version: 1.5.0
+# Version: 1.6.0
 # Author: Abdul Wasea (github.com/AbdulWaseaDev)
 # License: MIT
 # ============================================================
@@ -65,6 +65,18 @@ $Config_SkipDockerCompact    = $false
 $Config_SkipFirefox          = $false
 $Config_SkipBrave            = $false
 $Config_SkipTeams            = $false
+$Config_SkipYarn             = $false
+$Config_SkipPnpm             = $false
+$Config_SkipNuGet            = $false
+$Config_SkipMaven            = $false
+$Config_SkipGradle           = $false
+$Config_SkipCargo            = $false
+$Config_SkipGo               = $false
+$Config_SkipFlutter          = $false
+$Config_SkipCrashDumps       = $false
+$Config_SkipDISM             = $false
+$Config_SkipBuildArtifacts   = $false
+$Config_SkipGitClean         = $false
 
 if (Test-Path $configPath) {
     . $configPath
@@ -256,6 +268,30 @@ Write-Header "CAPTURING BEFORE STATE"
 $beforeFree       = Get-FreeGB
 $beforeUsed       = Get-UsedGB
 $beforeNpm        = Get-FolderSizeGB "$env:LOCALAPPDATA\npm-cache"
+$yarnCachePath    = "$env:LOCALAPPDATA\Yarn\Cache"
+$pnpmStorePath    = "$env:LOCALAPPDATA\pnpm-store"
+$nugetPkgPath     = "$env:USERPROFILE\.nuget\packages"
+$mavenRepoPath    = "$env:USERPROFILE\.m2\repository"
+$gradleCachePath  = "$env:USERPROFILE\.gradle\caches"
+$cargoRegPath     = "$env:USERPROFILE\.cargo\registry"
+$cargoGitPath     = "$env:USERPROFILE\.cargo\git"
+$goModPath        = "$env:USERPROFILE\go\pkg\mod"
+$flutterPubPath   = "$env:LOCALAPPDATA\Pub\Cache"
+$crashDumpsPath   = "$env:LOCALAPPDATA\CrashDumps"
+$werArchivePath   = "$env:LOCALAPPDATA\Microsoft\Windows\WER\ReportArchive"
+$werQueuePath     = "$env:LOCALAPPDATA\Microsoft\Windows\WER\ReportQueue"
+$beforeYarn       = Get-FolderSizeGB $yarnCachePath
+$beforePnpm       = Get-FolderSizeGB $pnpmStorePath
+$beforeNuGet      = Get-FolderSizeGB $nugetPkgPath
+$beforeMaven      = Get-FolderSizeGB $mavenRepoPath
+$beforeGradle     = Get-FolderSizeGB $gradleCachePath
+$beforeCargo      = [math]::Round((Get-FolderSizeGB $cargoRegPath) + (Get-FolderSizeGB $cargoGitPath), 2)
+$beforeGo         = Get-FolderSizeGB $goModPath
+$beforeFlutter    = Get-FolderSizeGB $flutterPubPath
+$beforeCrashDumps = [math]::Round(
+                        (Get-FolderSizeGB $crashDumpsPath) +
+                        (Get-FolderSizeGB $werArchivePath) +
+                        (Get-FolderSizeGB $werQueuePath), 2)
 $beforeTemp       = Get-FolderSizeGB "$env:TEMP"
 $beforeWinTemp    = Get-FolderSizeGB "C:\Windows\Temp"
 $chromeBase       = "$env:LOCALAPPDATA\Google\Chrome\User Data"
@@ -302,6 +338,15 @@ Write-Host "  Firefox           : $beforeFirefox GB $(if (-not (Test-Path $firef
 Write-Host "  Brave             : $beforeBrave GB $(if (-not (Test-Path $braveBase)) { '(not installed)' })"
 Write-Host "  Teams cache       : $beforeTeams GB $(if (-not (Test-Path $teamsOldPath) -and -not $teamsPkg) { '(not installed)' })"
 Write-Host "  npm cache         : $beforeNpm GB $(if (-not $hasNpm) { '(npm not found)' })"
+Write-Host "  Yarn cache        : $beforeYarn GB $(if (-not (Test-Path $yarnCachePath)) { '(not installed)' })"
+Write-Host "  pnpm store        : $beforePnpm GB $(if (-not (Test-Path $pnpmStorePath)) { '(not installed)' })"
+Write-Host "  NuGet packages    : $beforeNuGet GB $(if (-not (Test-Path $nugetPkgPath)) { '(not installed)' })"
+Write-Host "  Maven local repo  : $beforeMaven GB $(if (-not (Test-Path $mavenRepoPath)) { '(not installed)' })"
+Write-Host "  Gradle caches     : $beforeGradle GB $(if (-not (Test-Path $gradleCachePath)) { '(not installed)' })"
+Write-Host "  Cargo registry    : $beforeCargo GB $(if (-not (Test-Path $cargoRegPath)) { '(not installed)' })"
+Write-Host "  Go module cache   : $beforeGo GB $(if (-not (Test-Path $goModPath)) { '(not installed)' })"
+Write-Host "  Flutter pub cache : $beforeFlutter GB $(if (-not (Test-Path $flutterPubPath)) { '(not installed)' })"
+Write-Host "  Crash dumps       : $beforeCrashDumps GB"
 Write-Host "  Temp files        : $([math]::Round($beforeTemp + $beforeWinTemp, 2)) GB"
 Write-Host "  Windows Update    : $beforeWinUpdate GB"
 Write-Host "  Claude cache      : $beforeClause GB $(if (-not $claudePkg) { '(not installed)' })"
@@ -536,9 +581,130 @@ if (-not $hasPip) {
     Write-Done "pip cache purged"; Add-Report "pip Cache" "OK" "purged"
 } else { Write-Skipped "pip cache"; Add-Report "pip Cache" "SKIPPED" "-" }
 
-# ── Step 6: Temp Files ───────────────────────────────────────
+# ── Step 8: Yarn Cache ───────────────────────────────────────
 
-Write-Header "STEP 8 — Temp Files Cleanup"
+Write-Header "STEP 8 — Yarn Cache Cleanup"
+
+if (-not (Test-Path $yarnCachePath)) {
+    Write-Skipped "Yarn not installed"; Add-Report "Yarn Cache" "SKIPPED" "not installed"
+} elseif ($Config_SkipYarn) {
+    Write-Skipped "Yarn cache (disabled in config)"; Add-Report "Yarn Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Yarn Cache Cleanup") {
+    if ($DryRun) { Write-DryRun "Yarn cache ($beforeYarn GB)" }
+    else { Remove-Item "$yarnCachePath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "Yarn cache cleaned ($beforeYarn GB)"; Add-Report "Yarn Cache" "OK" "$beforeYarn GB"
+} else { Write-Skipped "Yarn cache"; Add-Report "Yarn Cache" "SKIPPED" "-" }
+
+# ── Step 9: pnpm Store ───────────────────────────────────────
+
+Write-Header "STEP 9 — pnpm Store Cleanup"
+
+if (-not (Test-Path $pnpmStorePath)) {
+    Write-Skipped "pnpm not installed"; Add-Report "pnpm Store" "SKIPPED" "not installed"
+} elseif ($Config_SkipPnpm) {
+    Write-Skipped "pnpm store (disabled in config)"; Add-Report "pnpm Store" "SKIPPED" "disabled"
+} elseif (Confirm-Step "pnpm Store Cleanup") {
+    $hasPnpm = $null -ne (Get-Command pnpm -ErrorAction SilentlyContinue)
+    if ($DryRun) { Write-DryRun "pnpm store ($beforePnpm GB)" }
+    elseif ($hasPnpm) { pnpm store prune 2>&1 | Out-Null }
+    else { Remove-Item "$pnpmStorePath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "pnpm store cleaned ($beforePnpm GB)"; Add-Report "pnpm Store" "OK" "$beforePnpm GB"
+} else { Write-Skipped "pnpm store"; Add-Report "pnpm Store" "SKIPPED" "-" }
+
+# ── Step 10: NuGet Packages Cache ────────────────────────────
+
+Write-Header "STEP 10 — NuGet Packages Cache Cleanup"
+
+if (-not (Test-Path $nugetPkgPath)) {
+    Write-Skipped "NuGet cache not found (~\.nuget\packages)"; Add-Report "NuGet Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipNuGet) {
+    Write-Skipped "NuGet cache (disabled in config)"; Add-Report "NuGet Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "NuGet Packages Cache Cleanup") {
+    $hasDotnet = $null -ne (Get-Command dotnet -ErrorAction SilentlyContinue)
+    if ($DryRun) { Write-DryRun "NuGet packages cache ($beforeNuGet GB)" }
+    elseif ($hasDotnet) { dotnet nuget locals all --clear 2>&1 | Out-Null }
+    else { Remove-Item "$nugetPkgPath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "NuGet cache cleared ($beforeNuGet GB)"; Add-Report "NuGet Cache" "OK" "$beforeNuGet GB"
+} else { Write-Skipped "NuGet cache"; Add-Report "NuGet Cache" "SKIPPED" "-" }
+
+# ── Step 11: Maven Local Repository ─────────────────────────
+
+Write-Header "STEP 11 — Maven Local Repository Cleanup"
+
+if (-not (Test-Path $mavenRepoPath)) {
+    Write-Skipped "Maven local repo not found (~\.m2\repository)"; Add-Report "Maven Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipMaven) {
+    Write-Skipped "Maven cache (disabled in config)"; Add-Report "Maven Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Maven Local Repository Cleanup") {
+    if ($DryRun) { Write-DryRun "Maven local repo ($beforeMaven GB)" }
+    else { Remove-Item "$mavenRepoPath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "Maven local repo cleared ($beforeMaven GB)"; Add-Report "Maven Cache" "OK" "$beforeMaven GB"
+} else { Write-Skipped "Maven cache"; Add-Report "Maven Cache" "SKIPPED" "-" }
+
+# ── Step 12: Gradle Caches ───────────────────────────────────
+
+Write-Header "STEP 12 — Gradle Caches Cleanup"
+
+if (-not (Test-Path $gradleCachePath)) {
+    Write-Skipped "Gradle cache not found (~\.gradle\caches)"; Add-Report "Gradle Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipGradle) {
+    Write-Skipped "Gradle cache (disabled in config)"; Add-Report "Gradle Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Gradle Caches Cleanup") {
+    if ($DryRun) { Write-DryRun "Gradle caches ($beforeGradle GB)" }
+    else { Remove-Item "$gradleCachePath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "Gradle caches cleared ($beforeGradle GB)"; Add-Report "Gradle Cache" "OK" "$beforeGradle GB"
+} else { Write-Skipped "Gradle cache"; Add-Report "Gradle Cache" "SKIPPED" "-" }
+
+# ── Step 13: Cargo Registry ──────────────────────────────────
+
+Write-Header "STEP 13 — Cargo Registry Cleanup"
+
+if (-not (Test-Path $cargoRegPath)) {
+    Write-Skipped "Cargo registry not found (~\.cargo)"; Add-Report "Cargo Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipCargo) {
+    Write-Skipped "Cargo cache (disabled in config)"; Add-Report "Cargo Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Cargo Registry Cleanup") {
+    if ($DryRun) { Write-DryRun "Cargo registry + git ($beforeCargo GB)" }
+    else {
+        Remove-Item "$cargoRegPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+        Remove-Item "$cargoGitPath\*" -Recurse -Force -ErrorAction SilentlyContinue
+    }
+    Write-Done "Cargo registry cleared ($beforeCargo GB)"; Add-Report "Cargo Cache" "OK" "$beforeCargo GB"
+} else { Write-Skipped "Cargo cache"; Add-Report "Cargo Cache" "SKIPPED" "-" }
+
+# ── Step 14: Go Module Cache ─────────────────────────────────
+
+Write-Header "STEP 14 — Go Module Cache Cleanup"
+
+if (-not (Test-Path $goModPath)) {
+    Write-Skipped "Go module cache not found"; Add-Report "Go Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipGo) {
+    Write-Skipped "Go module cache (disabled in config)"; Add-Report "Go Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Go Module Cache Cleanup") {
+    $hasGo = $null -ne (Get-Command go -ErrorAction SilentlyContinue)
+    if ($DryRun) { Write-DryRun "Go module cache ($beforeGo GB)" }
+    elseif ($hasGo) { go clean -modcache 2>&1 | Out-Null }
+    else { Remove-Item "$goModPath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "Go module cache cleared ($beforeGo GB)"; Add-Report "Go Cache" "OK" "$beforeGo GB"
+} else { Write-Skipped "Go cache"; Add-Report "Go Cache" "SKIPPED" "-" }
+
+# ── Step 15: Flutter/Dart Pub Cache ──────────────────────────
+
+Write-Header "STEP 15 — Flutter/Dart Pub Cache Cleanup"
+
+if (-not (Test-Path $flutterPubPath)) {
+    Write-Skipped "Flutter/Dart pub cache not found"; Add-Report "Flutter Cache" "SKIPPED" "not found"
+} elseif ($Config_SkipFlutter) {
+    Write-Skipped "Flutter cache (disabled in config)"; Add-Report "Flutter Cache" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Flutter/Dart Pub Cache Cleanup") {
+    if ($DryRun) { Write-DryRun "Flutter pub cache ($beforeFlutter GB)" }
+    else { Remove-Item "$flutterPubPath\*" -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Done "Flutter pub cache cleared ($beforeFlutter GB)"; Add-Report "Flutter Cache" "OK" "$beforeFlutter GB"
+} else { Write-Skipped "Flutter cache"; Add-Report "Flutter Cache" "SKIPPED" "-" }
+
+# ── Step 16: Temp Files ──────────────────────────────────────
+
+Write-Header "STEP 16 — Temp Files Cleanup"
 
 if ($Config_SkipTemp) {
     Write-Skipped "Temp files (disabled in config)"; Add-Report "Temp Files" "SKIPPED" "disabled in config"
@@ -552,9 +718,27 @@ if ($Config_SkipTemp) {
     Write-Done "Temp files cleared ($total GB)"; Add-Report "Temp Files" "OK" "$total GB"
 } else { Write-Skipped "Temp files"; Add-Report "Temp Files" "SKIPPED" "-" }
 
+# ── Step 17: Crash Dumps ─────────────────────────────────────
+
+Write-Header "STEP 17 — Crash Dumps Cleanup"
+
+if ($Config_SkipCrashDumps) {
+    Write-Skipped "Crash dumps (disabled in config)"; Add-Report "Crash Dumps" "SKIPPED" "disabled"
+} elseif (Confirm-Step "Crash Dumps Cleanup") {
+    $crashPaths = @($crashDumpsPath, $werArchivePath, $werQueuePath)
+    $total = [math]::Round(($crashPaths | ForEach-Object { Get-FolderSizeGB $_ } | Measure-Object -Sum).Sum, 2)
+    if ($DryRun) { Write-DryRun "Crash dumps + WER reports ($beforeCrashDumps GB)" }
+    else {
+        foreach ($p in $crashPaths) {
+            if (Test-Path $p) { Remove-Item "$p\*" -Recurse -Force -ErrorAction SilentlyContinue }
+        }
+    }
+    Write-Done "Crash dumps cleared ($beforeCrashDumps GB)"; Add-Report "Crash Dumps" "OK" "$beforeCrashDumps GB"
+} else { Write-Skipped "Crash dumps"; Add-Report "Crash Dumps" "SKIPPED" "-" }
+
 # ── Step 7: Windows Update Cache ────────────────────────────
 
-Write-Header "STEP 9 — Windows Update Cache Cleanup"
+Write-Header "STEP 18 — Windows Update Cache Cleanup"
 
 if ($Config_SkipWindowsUpdate) {
     Write-Skipped "Windows Update cache (disabled in config)"; Add-Report "Windows Update Cache" "SKIPPED" "disabled in config"
@@ -570,9 +754,27 @@ if ($Config_SkipWindowsUpdate) {
     Add-Report "Windows Update Cache" "OK" "$beforeWinUpdate GB"
 } else { Write-Skipped "Windows Update cache"; Add-Report "Windows Update Cache" "SKIPPED" "-" }
 
+# ── Step 19: DISM Component Store Cleanup ───────────────────
+
+Write-Header "STEP 19 — DISM Component Store Cleanup"
+
+if ($Config_SkipDISM) {
+    Write-Skipped "DISM cleanup (disabled in config)"; Add-Report "DISM Component Store" "SKIPPED" "disabled"
+} elseif (Confirm-Step "DISM Component Store Cleanup") {
+    Write-Info "Cleaning up superseded Windows components — this may take several minutes"
+    if ($DryRun) { Write-DryRun "DISM /online /cleanup-image /startcomponentcleanup" }
+    else {
+        $dismResult = dism /online /cleanup-image /startcomponentcleanup 2>&1
+        $dismOk = $LASTEXITCODE -eq 0
+        if (-not $dismOk) { Write-ErrorLog "DISM" ($dismResult | Select-Object -Last 3 | Out-String).Trim() }
+    }
+    $status = if ($dismOk -or $DryRun) { "OK" } else { "WARN" }
+    Write-Done "DISM component store cleaned"; Add-Report "DISM Component Store" $status "WinSxS cleanup"
+} else { Write-Skipped "DISM cleanup"; Add-Report "DISM Component Store" "SKIPPED" "-" }
+
 # ── Step 8: Windows Store Cache ─────────────────────────────
 
-Write-Header "STEP 10 — Windows Store Cache Cleanup"
+Write-Header "STEP 20 — Windows Store Cache Cleanup"
 
 if ($Config_SkipWindowsStore) {
     Write-Skipped "Windows Store cache (disabled in config)"; Add-Report "Windows Store Cache" "SKIPPED" "disabled in config"
@@ -583,7 +785,7 @@ if ($Config_SkipWindowsStore) {
 
 # ── Step 9: Recycle Bin ──────────────────────────────────────
 
-Write-Header "STEP 11 — Empty Recycle Bin"
+Write-Header "STEP 21 — Empty Recycle Bin"
 
 if ($Config_SkipRecycleBin) {
     Write-Skipped "Recycle Bin (disabled in config)"; Add-Report "Recycle Bin" "SKIPPED" "disabled in config"
@@ -602,7 +804,7 @@ if ($Config_SkipRecycleBin) {
 
 # ── Step 10: VS Code Duplicate Extensions ───────────────────
 
-Write-Header "STEP 12 — VS Code Duplicate Extension Cleanup"
+Write-Header "STEP 22 — VS Code Duplicate Extension Cleanup"
 
 if (-not $hasVSCode) {
     Write-Skipped "VS Code not installed"; Add-Report "VS Code Duplicates" "SKIPPED" "not installed"
@@ -637,7 +839,7 @@ if (-not $hasVSCode) {
 
 # ── Step 13: Microsoft Teams Cache ──────────────────────────
 
-Write-Header "STEP 13 — Microsoft Teams Cache Cleanup"
+Write-Header "STEP 23 — Microsoft Teams Cache Cleanup"
 
 $hasTeams = (Test-Path $teamsOldPath) -or ($null -ne $teamsPkg)
 
@@ -681,7 +883,7 @@ if (-not $hasTeams) {
 
 # ── Step 14: Projects __pycache__ ──────────────────────────
 
-Write-Header "STEP 14 — Projects __pycache__ Cleanup"
+Write-Header "STEP 24 — Projects __pycache__ Cleanup"
 
 if ($Config_ProjectsPath.Count -eq 0 -or $SkipProjects) {
     Write-Skipped "Projects path not configured (set Config_ProjectsPath in cleanup-config.ps1)"
@@ -706,7 +908,7 @@ if ($Config_ProjectsPath.Count -eq 0 -or $SkipProjects) {
 
 # ── Step 12: Inactive node_modules ──────────────────────────
 
-Write-Header "STEP 15 — Inactive node_modules Cleanup"
+Write-Header "STEP 25 — Inactive node_modules Cleanup"
 
 if ($Config_SkipNodeModules -or $SkipProjects) {
     Write-Skipped "node_modules cleanup (disabled)"; Add-Report "Inactive node_modules" "SKIPPED" "disabled"
@@ -760,7 +962,7 @@ if ($Config_SkipNodeModules -or $SkipProjects) {
 
 # ── Step 13: Inactive Python Venvs ──────────────────────────
 
-Write-Header "STEP 16 — Inactive Python Venvs Cleanup"
+Write-Header "STEP 26 — Inactive Python Venvs Cleanup"
 
 if ($Config_SkipPythonVenvs -or $SkipProjects) {
     Write-Skipped "Python venvs cleanup (disabled)"; Add-Report "Inactive Python Venvs" "SKIPPED" "disabled"
@@ -818,9 +1020,119 @@ if ($Config_SkipPythonVenvs -or $SkipProjects) {
     }
 } else { Write-Skipped "Python venvs cleanup"; Add-Report "Inactive Python Venvs" "SKIPPED" "-" }
 
+# ── Step 27: Build Artifacts ─────────────────────────────────
+
+Write-Header "STEP 27 — Build Artifacts Cleanup"
+
+if ($Config_SkipBuildArtifacts -or $SkipProjects) {
+    Write-Skipped "Build artifacts cleanup (disabled)"; Add-Report "Build Artifacts" "SKIPPED" "disabled"
+} elseif ($Config_ProjectsPath.Count -eq 0) {
+    Write-Skipped "No project folders configured"; Add-Report "Build Artifacts" "SKIPPED" "no projects configured"
+} elseif (Confirm-Step "Build Artifacts Cleanup") {
+    $artifactPatterns = @(
+        @{ Marker = "*.csproj"; Dirs = @("bin", "obj") },
+        @{ Marker = "*.sln";    Dirs = @("bin", "obj") },
+        @{ Marker = "Cargo.toml"; Dirs = @("target") },
+        @{ Marker = "pom.xml";  Dirs = @("target") },
+        @{ Marker = "build.gradle"; Dirs = @("build") },
+        @{ Marker = "package.json"; Dirs = @("dist", ".next", ".nuxt", "out") }
+    )
+    $candidates = @()
+    foreach ($projectDir in ($Config_ProjectsPath | Where-Object { Test-Path $_ })) {
+        Get-ChildItem $projectDir -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $proj = $_
+            foreach ($pat in $artifactPatterns) {
+                if (Get-ChildItem $proj.FullName -Filter $pat.Marker -ErrorAction SilentlyContinue) {
+                    foreach ($dir in $pat.Dirs) {
+                        $aPath = Join-Path $proj.FullName $dir
+                        if ((Test-Path $aPath) -and ($candidates | Where-Object { $_.Path -eq $aPath }).Count -eq 0) {
+                            $candidates += [PSCustomObject]@{
+                                Path    = $aPath
+                                Project = $proj.Name
+                                Type    = $dir
+                                Size    = Get-FolderSizeGB $aPath
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if ($candidates.Count -eq 0) {
+        Write-Skipped "No build artifact folders found"; Add-Report "Build Artifacts" "SKIPPED" "none found"
+    } else {
+        $totalSize = [math]::Round(($candidates | Measure-Object Size -Sum).Sum, 2)
+        Write-Info "Found $($candidates.Count) build artifact folder(s):"
+        foreach ($c in $candidates) {
+            Write-Host "    [$($c.Type)]  $($c.Path)  ($($c.Size) GB)" -ForegroundColor Yellow
+        }
+        Write-Host "  Total: ~$totalSize GB" -ForegroundColor Yellow
+        if ($DryRun) {
+            Write-DryRun "Would prompt to delete $($candidates.Count) build artifact folder(s)"
+            Add-Report "Build Artifacts" "SKIPPED" "dry run — $($candidates.Count) found (~$totalSize GB)"
+        } else {
+            $answer = Read-Host "`n  Delete all $($candidates.Count) build artifact folder(s) listed above? (Y/n)"
+            if ($answer -eq '' -or $answer -match '^[Yy]') {
+                foreach ($c in $candidates) {
+                    Write-Step "Removing: $($c.Path)"
+                    Remove-Item $c.Path -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                Write-Done "$($candidates.Count) artifact folder(s) removed (~$totalSize GB)"
+                Add-Report "Build Artifacts" "OK" "~$totalSize GB"
+            } else {
+                Write-Skipped "Build artifacts deletion declined by user"
+                Add-Report "Build Artifacts" "SKIPPED" "declined by user"
+            }
+        }
+    }
+} else { Write-Skipped "Build artifacts"; Add-Report "Build Artifacts" "SKIPPED" "-" }
+
+# ── Step 28: Git Clean ───────────────────────────────────────
+
+Write-Header "STEP 28 — Git Repositories Clean"
+
+if ($Config_SkipGitClean -or $SkipProjects) {
+    Write-Skipped "Git clean (disabled)"; Add-Report "Git Clean" "SKIPPED" "disabled"
+} elseif ($Config_ProjectsPath.Count -eq 0) {
+    Write-Skipped "No project folders configured"; Add-Report "Git Clean" "SKIPPED" "no projects configured"
+} elseif (-not (Get-Command git -ErrorAction SilentlyContinue)) {
+    Write-Skipped "git not installed"; Add-Report "Git Clean" "SKIPPED" "git not found"
+} elseif (Confirm-Step "Git Repositories Clean") {
+    $repos = @()
+    foreach ($projectDir in ($Config_ProjectsPath | Where-Object { Test-Path $_ })) {
+        Get-ChildItem $projectDir -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            if (Test-Path (Join-Path $_.FullName ".git")) { $repos += $_ }
+        }
+    }
+    if ($repos.Count -eq 0) {
+        Write-Skipped "No git repositories found"; Add-Report "Git Clean" "SKIPPED" "none found"
+    } else {
+        Write-Info "Found $($repos.Count) git repo(s) — will remove gitignored files only (git clean -fdX):"
+        foreach ($r in $repos) { Write-Host "    $($r.FullName)" -ForegroundColor Yellow }
+        if ($DryRun) {
+            Write-DryRun "Would run git clean -fdX in $($repos.Count) repo(s)"
+            Add-Report "Git Clean" "SKIPPED" "dry run — $($repos.Count) repos found"
+        } else {
+            $answer = Read-Host "`n  Run git clean -fdX in all $($repos.Count) repo(s) above? (Y/n)"
+            if ($answer -eq '' -or $answer -match '^[Yy]') {
+                $cleaned = 0
+                foreach ($r in $repos) {
+                    Write-Step "Cleaning: $($r.FullName)"
+                    git -C $r.FullName clean -fdX 2>&1 | Out-Null
+                    $cleaned++
+                }
+                Write-Done "$cleaned repo(s) cleaned (gitignored files removed)"
+                Add-Report "Git Clean" "OK" "$cleaned repos"
+            } else {
+                Write-Skipped "Git clean declined by user"; Add-Report "Git Clean" "SKIPPED" "declined by user"
+            }
+        }
+    }
+} else { Write-Skipped "Git clean"; Add-Report "Git Clean" "SKIPPED" "-" }
+
 # ── Step 14: Docker Prune (via WSL) ─────────────────────────
 
-Write-Header "STEP 17 — Docker Cleanup"
+Write-Header "STEP 29 — Docker Cleanup"
 
 if ($Config_SkipDocker) {
     Write-Skipped "Docker cleanup (disabled in config)"; Add-Report "Docker Prune" "SKIPPED" "disabled"
@@ -877,7 +1189,7 @@ if ($Config_SkipDocker) {
 
 # ── Step 16: WSL apt Cleanup ─────────────────────────────────
 
-Write-Header "STEP 18 — WSL Ubuntu apt Cleanup"
+Write-Header "STEP 30 — WSL Ubuntu apt Cleanup"
 
 if (-not $hasWSL) {
     Write-Skipped "WSL not installed"; Add-Report "WSL apt Cleanup" "SKIPPED" "WSL not installed"
@@ -902,7 +1214,7 @@ if (-not $hasWSL) {
 
 # ── Step 17: WSL + Docker Disk Compaction ───────────────────
 
-Write-Header "STEP 19 — WSL + Docker Disk Compaction"
+Write-Header "STEP 31 — WSL + Docker Disk Compaction"
 
 if ($Config_SkipWSLCompact) {
     Write-Skipped "Compaction disabled in config/flag"
