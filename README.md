@@ -10,7 +10,7 @@ and inactive project dependencies — all in a single run.
 [![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](https://github.com/PowerShell/PowerShell)
 [![Windows](https://img.shields.io/badge/Windows-10%2F11-blue?logo=windows)](https://www.microsoft.com/windows)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.6.0-brightgreen)](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest)
+[![Version](https://img.shields.io/github/v/release/AbdulWaseaDev/WinDiskCleanup?color=brightgreen)](https://github.com/AbdulWaseaDev/WinDiskCleanup/releases/latest)
 [![CI](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AbdulWaseaDev/WinDiskCleanup/actions/workflows/lint.yml)
 
 [Installation](#installation) · [Usage](#usage) · [Configuration](#configuration) · [Contributing](#contributing)
