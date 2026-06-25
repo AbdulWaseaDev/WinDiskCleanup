@@ -49,11 +49,12 @@ Describe "cleanup-config.ps1 — default values" {
             $true
         )
 
-        foreach ($name in @("Config_ProjectsPath", "Config_InactiveNodeModules", "Config_InactivePythonVenvs")) {
-            $a = $assignments | Where-Object { $_.Left.VariablePath.UserPath -eq $name }
-            $a | Should -Not -BeNullOrEmpty -Because "$name must be defined"
-            $a.Right.Extent.Text | Should -Match '@\(' -Because "$name should be assigned an array literal"
-        }
+        $projPath = $assignments | Where-Object { $_.Left.VariablePath.UserPath -eq "Config_ProjectsPath" }
+        $projPath | Should -Not -BeNullOrEmpty -Because "Config_ProjectsPath must be defined"
+        $projPath.Right.Extent.Text | Should -Match '@\(' -Because "Config_ProjectsPath should be assigned an array literal"
+
+        $threshold = $assignments | Where-Object { $_.Left.VariablePath.UserPath -eq "Config_InactiveDaysThreshold" }
+        $threshold | Should -Not -BeNullOrEmpty -Because "Config_InactiveDaysThreshold must be defined"
 
         $skipVars = $assignments | Where-Object { $_.Left.VariablePath.UserPath -like "Config_Skip*" }
         $skipVars.Count | Should -BeGreaterThan 0
