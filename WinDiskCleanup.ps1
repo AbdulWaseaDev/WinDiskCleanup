@@ -1,4 +1,4 @@
-# ============================================================
+﻿# ============================================================
 # WinDiskCleanup — Windows Disk Cleanup Script
 # Version: 1.5.0
 # Author: Abdul Wasea (github.com/AbdulWaseaDev)
@@ -290,7 +290,8 @@ if (Test-Path $chromeBase) {
             if (Test-Path $pref) {
                 try { $email = (Get-Content $pref -Raw | ConvertFrom-Json -ErrorAction SilentlyContinue).account_info[0].email } catch { $email = "" }
             }
-            $chromeProfilesBefore[$_.Name] = @{ Size = Get-FolderSizeGB $_.FullName; Email = if ($email) { $email } else { "unknown" } }
+            $emailVal = if ($email) { $email } else { "unknown" }
+            $chromeProfilesBefore[$_.Name] = @{ Size = Get-FolderSizeGB $_.FullName; Email = $emailVal }
         }
 }
 
@@ -305,7 +306,8 @@ Write-Host "  npm cache         : $beforeNpm GB $(if (-not $hasNpm) { '(npm not 
 Write-Host "  Temp files        : $([math]::Round($beforeTemp + $beforeWinTemp, 2)) GB"
 Write-Host "  Windows Update    : $beforeWinUpdate GB"
 Write-Host "  Claude cache      : $beforeClause GB $(if (-not $claudePkg) { '(not installed)' })"
-Write-Host "  Projects folder   : $beforeProjects GB $(if ($Config_ProjectsPath.Count -eq 0) { '(not configured)' } else { "($($Config_ProjectsPath.Count) folder(s))" })"
+$projectsFolderDesc = if ($Config_ProjectsPath.Count -eq 0) { '(not configured)' } else { "($($Config_ProjectsPath.Count) folder(s))" }
+Write-Host "  Projects folder   : $beforeProjects GB $projectsFolderDesc"
 Write-Host "  WSL vhdx          : $beforeWSLVhdx GB $(if (-not $wslVhdx) { '(WSL not found)' })"
 Write-Host "  Docker vhdx       : $beforeDockerVhdx GB $(if (-not $dockerVhdx) { '(Docker not found)' })"
 $dockerType = if ($hasDockerNative) { 'Docker Desktop' } elseif ($hasDockerWSL) { 'Docker in WSL' } else { 'not installed' }
