@@ -44,8 +44,7 @@ $configPath = Join-Path $PSScriptRoot "cleanup-config.ps1"
 
 # Defaults (overridden by cleanup-config.ps1 if present)
 $Config_ProjectsPath         = @()
-$Config_InactiveNodeModules  = @()
-$Config_InactivePythonVenvs  = @()
+$Config_InactiveDaysThreshold = 90
 $Config_SkipChrome           = $false
 $Config_SkipEdge             = $false
 $Config_SkipNpm              = $false
@@ -709,54 +708,114 @@ if ($Config_ProjectsPath.Count -eq 0 -or $SkipProjects) {
 
 Write-Header "STEP 15 — Inactive node_modules Cleanup"
 
-if ($Config_InactiveNodeModules.Count -eq 0 -or $SkipProjects) {
-    Write-Skipped "No inactive node_modules configured (edit cleanup-config.ps1 to add paths)"
-    Add-Report "Inactive node_modules" "SKIPPED" "not configured"
-} elseif ($Config_SkipNodeModules) {
-    Write-Skipped "node_modules cleanup (disabled in config)"; Add-Report "Inactive node_modules" "SKIPPED" "disabled in config"
+if ($Config_SkipNodeModules -or $SkipProjects) {
+    Write-Skipped "node_modules cleanup (disabled)"; Add-Report "Inactive node_modules" "SKIPPED" "disabled"
+} elseif ($Config_ProjectsPath.Count -eq 0) {
+    Write-Skipped "No project folders configured (edit Config_ProjectsPath in cleanup-config.ps1)"
+    Add-Report "Inactive node_modules" "SKIPPED" "no projects configured"
 } elseif (Confirm-Step "Inactive node_modules Cleanup") {
-    $removed = 0; $totalSize = 0
-    foreach ($path in $Config_InactiveNodeModules) {
-        if (Test-Path $path) {
-            $size = Get-FolderSizeGB $path
-            $totalSize += $size
-            if ($DryRun) { Write-DryRun "$path ($size GB)" }
-            else {
-                Write-Step "Removing: $path"
-                Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    $cutoff     = (Get-Date).AddDays(-$Config_InactiveDaysThreshold)
+    $candidates = @()
+    foreach ($projectDir in ($Config_ProjectsPath | Where-Object { Test-Path $_ })) {
+        Get-ChildItem $projectDir -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            $nmPath = Join-Path $_.FullName "node_modules"
+            if ((Test-Path $nmPath) -and $_.LastWriteTime -lt $cutoff) {
+                $candidates += [PSCustomObject]@{
+                    Path      = $nmPath
+                    DaysSince = [int](New-TimeSpan -Start $_.LastWriteTime -End (Get-Date)).TotalDays
+                    Size      = Get-FolderSizeGB $nmPath
+                }
             }
-            $removed++
         }
     }
-    Write-Done "$removed node_modules removed (~$([math]::Round($totalSize,2)) GB)"
-    Add-Report "Inactive node_modules" "OK" "~$([math]::Round($totalSize,2)) GB"
+    if ($candidates.Count -eq 0) {
+        Write-Skipped "No node_modules older than $Config_InactiveDaysThreshold days found"
+        Add-Report "Inactive node_modules" "SKIPPED" "none found"
+    } else {
+        $totalSize = [math]::Round(($candidates | Measure-Object Size -Sum).Sum, 2)
+        Write-Info "Found $($candidates.Count) inactive node_modules (not touched in $Config_InactiveDaysThreshold+ days):"
+        foreach ($c in $candidates) {
+            Write-Host "    [$($c.DaysSince)d ago]  $($c.Path)  ($($c.Size) GB)" -ForegroundColor Yellow
+        }
+        Write-Host "  Total: ~$totalSize GB" -ForegroundColor Yellow
+        if ($DryRun) {
+            Write-DryRun "Would prompt to delete $($candidates.Count) node_modules folder(s) above"
+            Add-Report "Inactive node_modules" "SKIPPED" "dry run — $($candidates.Count) found (~$totalSize GB)"
+        } else {
+            $answer = Read-Host "`n  Delete all $($candidates.Count) node_modules folder(s) listed above? (Y/n)"
+            if ($answer -eq '' -or $answer -match '^[Yy]') {
+                foreach ($c in $candidates) {
+                    Write-Step "Removing: $($c.Path)"
+                    Remove-Item $c.Path -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                Write-Done "$($candidates.Count) node_modules removed (~$totalSize GB)"
+                Add-Report "Inactive node_modules" "OK" "~$totalSize GB"
+            } else {
+                Write-Skipped "node_modules deletion declined by user"
+                Add-Report "Inactive node_modules" "SKIPPED" "declined by user"
+            }
+        }
+    }
 } else { Write-Skipped "node_modules cleanup"; Add-Report "Inactive node_modules" "SKIPPED" "-" }
 
 # ── Step 13: Inactive Python Venvs ──────────────────────────
 
 Write-Header "STEP 16 — Inactive Python Venvs Cleanup"
 
-if ($Config_InactivePythonVenvs.Count -eq 0 -or $SkipProjects) {
-    Write-Skipped "No inactive Python venvs configured (edit cleanup-config.ps1 to add paths)"
-    Add-Report "Inactive Python Venvs" "SKIPPED" "not configured"
-} elseif ($Config_SkipPythonVenvs) {
-    Write-Skipped "Python venvs cleanup (disabled in config)"; Add-Report "Inactive Python Venvs" "SKIPPED" "disabled in config"
+if ($Config_SkipPythonVenvs -or $SkipProjects) {
+    Write-Skipped "Python venvs cleanup (disabled)"; Add-Report "Inactive Python Venvs" "SKIPPED" "disabled"
+} elseif ($Config_ProjectsPath.Count -eq 0) {
+    Write-Skipped "No project folders configured (edit Config_ProjectsPath in cleanup-config.ps1)"
+    Add-Report "Inactive Python Venvs" "SKIPPED" "no projects configured"
 } elseif (Confirm-Step "Inactive Python Venvs Cleanup") {
-    $removed = 0; $totalSize = 0
-    foreach ($path in $Config_InactivePythonVenvs) {
-        if (Test-Path $path) {
-            $size = Get-FolderSizeGB $path
-            $totalSize += $size
-            if ($DryRun) { Write-DryRun "$path ($size GB)" }
-            else {
-                Write-Step "Removing: $path"
-                Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    $cutoff     = (Get-Date).AddDays(-$Config_InactiveDaysThreshold)
+    $venvNames  = @("venv", ".venv", "env", ".env")
+    $candidates = @()
+    foreach ($projectDir in ($Config_ProjectsPath | Where-Object { Test-Path $_ })) {
+        Get-ChildItem $projectDir -Directory -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($_.LastWriteTime -lt $cutoff) {
+                foreach ($venvName in $venvNames) {
+                    $venvPath = Join-Path $_.FullName $venvName
+                    if (Test-Path (Join-Path $venvPath "Scripts\activate")) {
+                        $candidates += [PSCustomObject]@{
+                            Path      = $venvPath
+                            DaysSince = [int](New-TimeSpan -Start $_.LastWriteTime -End (Get-Date)).TotalDays
+                            Size      = Get-FolderSizeGB $venvPath
+                        }
+                        break
+                    }
+                }
             }
-            $removed++
         }
     }
-    Write-Done "$removed Python venvs removed (~$([math]::Round($totalSize,2)) GB)"
-    Add-Report "Inactive Python Venvs" "OK" "~$([math]::Round($totalSize,2)) GB"
+    if ($candidates.Count -eq 0) {
+        Write-Skipped "No Python venvs older than $Config_InactiveDaysThreshold days found"
+        Add-Report "Inactive Python Venvs" "SKIPPED" "none found"
+    } else {
+        $totalSize = [math]::Round(($candidates | Measure-Object Size -Sum).Sum, 2)
+        Write-Info "Found $($candidates.Count) inactive Python venvs (not touched in $Config_InactiveDaysThreshold+ days):"
+        foreach ($c in $candidates) {
+            Write-Host "    [$($c.DaysSince)d ago]  $($c.Path)  ($($c.Size) GB)" -ForegroundColor Yellow
+        }
+        Write-Host "  Total: ~$totalSize GB" -ForegroundColor Yellow
+        if ($DryRun) {
+            Write-DryRun "Would prompt to delete $($candidates.Count) Python venv(s) above"
+            Add-Report "Inactive Python Venvs" "SKIPPED" "dry run — $($candidates.Count) found (~$totalSize GB)"
+        } else {
+            $answer = Read-Host "`n  Delete all $($candidates.Count) Python venv(s) listed above? (Y/n)"
+            if ($answer -eq '' -or $answer -match '^[Yy]') {
+                foreach ($c in $candidates) {
+                    Write-Step "Removing: $($c.Path)"
+                    Remove-Item $c.Path -Recurse -Force -ErrorAction SilentlyContinue
+                }
+                Write-Done "$($candidates.Count) Python venvs removed (~$totalSize GB)"
+                Add-Report "Inactive Python Venvs" "OK" "~$totalSize GB"
+            } else {
+                Write-Skipped "Python venvs deletion declined by user"
+                Add-Report "Inactive Python Venvs" "SKIPPED" "declined by user"
+            }
+        }
+    }
 } else { Write-Skipped "Python venvs cleanup"; Add-Report "Inactive Python Venvs" "SKIPPED" "-" }
 
 # ── Step 14: Docker Prune (via WSL) ─────────────────────────

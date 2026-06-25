@@ -20,22 +20,11 @@ $Config_ProjectsPath = @(
     # "E:\Work"
 )
 
-# ── Inactive node_modules to Delete ─────────────────────────
-# Add full paths to node_modules folders you want deleted.
-# These are projects you no longer actively work on.
-# LEAVE EMPTY if you are unsure — review manually first.
-$Config_InactiveNodeModules = @(
-    # "C:\Projects\old-project\node_modules",
-    # "D:\Dev\backup\old-website\node_modules"
-)
-
-# ── Inactive Python venvs to Delete ─────────────────────────
-# Add full paths to Python virtual environments you no longer need.
-# LEAVE EMPTY if you are unsure — review manually first.
-$Config_InactivePythonVenvs = @(
-    # "C:\Projects\old-bot\venv",
-    # "D:\Dev\old-scraper\.venv"
-)
+# ── Inactive Project Threshold ───────────────────────────────
+# Projects not touched in this many days are considered inactive.
+# node_modules and Python venvs inside inactive projects are listed
+# automatically — you will be asked before anything is deleted.
+$Config_InactiveDaysThreshold = 90
 
 # ── Skip Steps ───────────────────────────────────────────────
 # Set to $true to permanently skip a step without needing a CLI flag.

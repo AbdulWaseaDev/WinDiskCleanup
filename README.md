@@ -137,22 +137,12 @@ $Config_ProjectsPath = @(
 )
 ```
 
-### Inactive node_modules to delete
+### Inactive project threshold
+
+`node_modules` and Python venvs are **auto-detected** inside your project folders. Projects not touched within this many days are considered inactive — the script lists what it found and asks before deleting anything.
 
 ```powershell
-$Config_InactiveNodeModules = @(
-    "C:\Projects\old-project\node_modules",
-    "C:\Projects\backup\website\node_modules"
-)
-```
-
-### Inactive Python venvs to delete
-
-```powershell
-$Config_InactivePythonVenvs = @(
-    "C:\Projects\old-bot\venv",
-    "C:\Projects\old-scraper\.venv"
-)
+$Config_InactiveDaysThreshold = 90   # default: 90 days
 ```
 
 ### Skip steps permanently
